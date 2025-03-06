@@ -21,7 +21,7 @@ new09 	proc
 		je A_OUT
 
 		cmp al, 03h			;button '2'\'@' on keyboard
-		je STRING
+		je FRAME
 
 		jmp WRONG_BUTTON
 
@@ -41,25 +41,49 @@ A_OUT:	mov bx, 0b800h
 ;-----------------------------------------------------
 ;frame to the screen
 
-STRING:
+FRAME:
     push ds                ; save old DS
     push cs
     pop ds                 ; make DS = CS, for reading message correct
 
     mov bx, 0b800h
     mov es, bx
-    mov bx, 160 * 10 + 80
+
+	mov cx, 8
+	mov bp, 10
+	mov di, 160 * 10 + 50
 
     mov si, offset message
 
-NEXT_LIT:
-    mov al, [si]
-    mov es:[bx], al
-    mov byte ptr es:[bx + 1], 00101111b  ; white text of green background
-    inc si
-    add bx, 2
-    cmp byte ptr [si], '$'  ; '$' — string termination symbol
-    jne NEXT_LIT
+	push cx
+		call ShowString
+		pop cx
+
+		add di, 160d
+		;add bx, 0ah
+		;mov es, bx
+
+nextstr:	push cx
+	push si
+	call ShowString
+	pop si
+	pop cx
+
+	add di, 160d
+	;add bx, 0ah
+	;mov es, bx
+
+	dec bp
+	test bp, bp
+	jne nextstr
+
+	add si, 3
+
+	push cx
+	call ShowString
+	pop cx
+
+	add di, 160d
 
     pop ds                 ; reset old DS
     jmp END_OF_INT_09H
@@ -89,8 +113,44 @@ oldsegm09h	dw 0
 		endp
 ;=====================================================
 
+;=====================================================
+;ShowString
+;-----------------------------------------------------
+ShowString	proc
 
-message   db '<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3$'
+		push di
+		mov ah, 00101111b
+		mov al, [si]
+		mov es:[di],   al
+		mov es:[di+1], ah
+
+		add di, 2
+
+		inc si
+		mov al, [si]
+
+next:		mov es:[di], al
+		mov es:[di+1], ah
+		add di, 2
+		loop next
+
+		inc si
+		mov al, [si]
+
+		mov es:[di], al
+		mov es:[di+1], ah
+		add di, 2
+
+		inc si
+
+		pop di
+
+		ret
+		endp
+;=====================================================
+
+
+message   db '/=\| |\=/$'
 ;----------------------------------------------------|
 EOP:		; end of interrupt instructions			 |
 ;====================================================|
