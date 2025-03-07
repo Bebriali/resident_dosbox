@@ -7,52 +7,43 @@ start:	jmp main
 
 VIDEOSEG 	equ 0b800h
 
-
-COMMENT *
-new08 	proc
-		push ax bx es
-
-		mov ax, VIDEOSEG
-		mov es, ax
-		mov ah, 4eh
-
-		mov bx, offset Draw_Flag
-		cmp [bx], 0
-
-		je END_OF_INT_08
-		jmp FRAME
-
-FRAME:
-*
 ;=====================================================
 new09 	proc
-		push ax bx es
+		push ax bx cx es ds di si bp sp
+
+		push cs
+		pop ds
 
 		in al, 60h			;gets scan-code of pressed button
 
 		cmp al, 02h			;button '1'\'!' on keyboard
-		je A_OUT
+		je FRAME1
 
 		cmp al, 03h			;button '2'\'@' on keyboard
-		je FRAME
+		je FRAME2
+
+		cmp al, 04h			;button '3'\'#' on keyboard
+		je SHOW_REGS
+
+		cmp al, 05h			;button '4'\'$' on keyboard
+		je A_OUT
 
 		jmp WRONG_BUTTON
 
 ;-----------------------------------------------------
 ;frame to the screen
 
-FRAME:		mov bx, 0b800h
+FRAME1:
+		mov si, offset Style1
+		jmp VID_PREP
+FRAME2:
+		mov si, offset Style2
+		jmp VID_PREP
+
+VID_PREP:
+		mov bx, VIDEOSEG
 		mov es, bx
 		mov bx, 0
-		mov si, offset Style2
-
-		;mov ax, [si]
-		;push ax
-		;call ShowReg
-
-		;mov ah, 02h
-		;mov dx, si
-		;int 21h
 
 		mov cx, 8
 		mov bp, 10
@@ -63,13 +54,45 @@ FRAME:		mov bx, 0b800h
 ;-----------------------------------------------------
 
 ;-----------------------------------------------------
+;mov registers to VIDEOSEG
+
+SHOW_REGS:
+		mov bx, VIDEOSEG
+		mov es, bx
+		xor bx, bx
+
+		call ShowReg
+		add bx, 160d
+
+COMMENT *
+		push bx
+		call ShowReg
+		add bx, 160d
+
+		push cx
+		call ShowReg
+		add bx, 160d
+
+		push dx
+		call ShowReg
+		add dx, 160d
+*
+
+		jmp END_OF_INT_09H
+;-----------------------------------------------------
+
+;-----------------------------------------------------
 ;symbol A to the screen
 
-A_OUT:	mov word ptr es:[bx], 'A'
+A_OUT:	mov bx, VIDEOSEG
+		mov es, bx
+		xor bx, bx
+
+		mov word ptr es:[bx], 'A'
 		mov byte ptr es:[bx+1], 11010010b
 ;-----------------------------------------------------
 
-END_OF_INT_09H:
+WRONG_BUTTON:
 		in al, 61h
 		or al, 80h
 
@@ -79,7 +102,8 @@ END_OF_INT_09H:
 		mov al, 20h
 		out 20h, al
 
-WRONG_BUTTON:	pop es bx ax
+END_OF_INT_09H:
+		pop sp bp si di ds es cx bx ax
 
 ;-----------------------
 		db 0eah
@@ -97,53 +121,56 @@ oldsegm09h	dw 0
 ;-----------------------------------------------------
 ShowReg		proc
 
-                push sp
-                add sp, 4
-
+        ;push sp
+        ;add sp, 10d
+		mov cx, 4d
 		mov di, 0
-	        ;pop bx
 
-CONT_SH_REG:	pop bx
+		mov bx, word ptr [bp + 4]
+CONT_SH_REG:
 		cmp bx, 0h
 		je END_SH_REG
 
-        	push bx
-		and bx, 1111b
-	        cmp bx, 9h
-        	ja LITERA
-	        jmp DIGIT
+        push bx
+		and bx, 0fh
+	    cmp bx, 9h
+        ja LITERA
+	    jmp DIGIT
 
-LITERA:         add bx, 41h
-        	sub bx, 0ah
-	        jmp SAVE&OUT
-DIGIT:          add bx, 30h
-        	jmp SAVE&OUT
+LITERA:     add bx, 41h
+        sub bx, 0ah
+	    jmp SAVE&OUT
+DIGIT:      add bx, 30h
+        jmp SAVE&OUT
 
-SAVE&OUT:       mov byte ptr [hex_num + di], bl
-	        pop bx
-        	shr bx, 4
-	        push bx
+SAVE&OUT:   mov byte ptr [hex_num + di], bl
+	    pop bx
+        shr bx, 4
+	    push bx
 
 		inc di
-        	inc di
+        inc di
 
-		jmp CONT_SH_REG
+		loop CONT_SH_REG
 
-END_SH_REG:     mov bx, 0b800h
-	        mov es, bx
-        	mov di, 8d
+END_SH_REG: mov bx, 0b800h
+	    mov es, bx
+        mov di, 8d
 
 
-CONT_OUT:   	mov bl, [hex_num + di]
-        	neg di
-	        mov es:[slip + di], bl
-        	neg di
-	        dec di
-        	dec di
-	        cmp di, -2h
-        	jne CONT_OUT
+CONT_OUT:   mov bl, [hex_num + di]
+        neg di
+	    mov es:[slip + di], bl
+		neg di
+		dec di
+		dec di
+		cmp di, -2h
+		jne CONT_OUT
 
-                sub sp, 2
+		;sub sp, 2
+
+		;pop sp
+
 		ret
 		endp
 ;=====================================================
@@ -230,7 +257,7 @@ next:		mov es:[di], al
 ;=====================================================
 
 Style1: 	db 201d, 205d, 187d, 186d, 00d, 186d, 200d, 205d, 188d, '$'
-Style2:		db 03, 03, 03, 03, 20, 03, 03, 03, 03, '$'
+Style2:		db  03d,  03d,  03d,  03d, 00d,  03d,  03d,  03d,  03d, '$'
 
 EOP:
 

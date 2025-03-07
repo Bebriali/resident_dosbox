@@ -13,7 +13,10 @@ VIDEOSEG 	equ 0b800h
 
 ;=====================================================
 new09 	proc
-		push ax bx cx es
+		push ax bx cx es ds di si bp
+
+		push cs
+		pop ds
 
 		in al, 60h			;gets scan-code of pressed button
 
@@ -42,9 +45,6 @@ A_OUT:	mov bx, 0b800h
 ;frame to the screen
 
 FRAME:
-    push ds                ; save old DS
-    push cs
-    pop ds                 ; make DS = CS, for reading message correct
 
     mov bx, 0b800h
     mov es, bx
@@ -56,12 +56,13 @@ FRAME:
     mov si, offset message
 
 	push cx
-		call ShowString
-		pop cx
+	call ShowString
 
-		add di, 160d
-		;add bx, 0ah
-		;mov es, bx
+	pop cx
+
+	add di, 160d
+	;add bx, 0ah
+	;mov es, bx
 
 nextstr:	push cx
 	push si
@@ -85,11 +86,13 @@ nextstr:	push cx
 
 	add di, 160d
 
-    pop ds                 ; reset old DS
+    ;pop ds                 ; reset old DS
     jmp END_OF_INT_09H
 ;-----------------------------------------------------
 
-END_OF_INT_09H:
+;-----------------------------------------------------
+
+WRONG_BUTTON:
 		in al, 61h
 		or al, 80h
 
@@ -101,7 +104,8 @@ END_OF_INT_09H:
 		out 20h, al
 
 
-WRONG_BUTTON:	pop es cx bx ax
+END_OF_INT_09H:
+	pop bp si di ds es cx bx ax
 
 ;-----------------------
 		db 0eah
@@ -154,7 +158,7 @@ message   db '/=\| |\=/$'
 ;----------------------------------------------------|
 EOP:		; end of interrupt instructions			 |
 ;====================================================|
-heart 	  db '♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥$'
+
 ;=====================================================
 ;main
 ;-----------------------------------------------------
