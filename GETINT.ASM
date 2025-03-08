@@ -5,7 +5,17 @@ org 100h
 ;=====================================================
 start:	jmp main
 
-VIDEOSEG 	equ 0b800h
+;-----------------------------------------------------|
+;   	*constants or variables are stored here*      |
+;- - - - - - - - - - - - - - - - - - - - - - - - - - -|
+VIDEOSEG 	equ 0b800h								  ;
+slip    	equ 4h									  ;
+regs_num	equ 9d									  ;
+nxt_reg_ptr dw 12h									  ;
+str_num		dw 160 * 11                               ;
+col_num		dw 58d									  ;
+hex_num 	db 4 dup(0)								  ;
+;-----------------------------------------------------|
 
 ;=====================================================
 new09 	proc
@@ -46,7 +56,7 @@ VID_PREP:
 		mov bx, 0
 
 		mov cx, 8
-		mov bp, 10
+		mov bp, 9
 		mov di, 160 * 10 + 50
 
 		call DrawFrame
@@ -57,26 +67,11 @@ VID_PREP:
 ;mov registers to VIDEOSEG
 
 SHOW_REGS:
-		mov bx, VIDEOSEG
-		mov es, bx
-		xor bx, bx
+		push ax bx cx es ds di si bp sp
 
 		call ShowReg
-		add bx, 160d
 
-COMMENT *
-		push bx
-		call ShowReg
-		add bx, 160d
-
-		push cx
-		call ShowReg
-		add bx, 160d
-
-		push dx
-		call ShowReg
-		add dx, 160d
-*
+		pop sp bp si di ds es cx bx ax
 
 		jmp END_OF_INT_09H
 ;-----------------------------------------------------
@@ -106,6 +101,9 @@ END_OF_INT_09H:
 		pop sp bp si di ds es cx bx ax
 
 ;-----------------------
+; 0eah is a machine code
+; of far jump
+;- - - - - - - - - - - - 
 		db 0eah
 oldoffs09h 	dw 0
 oldsegm09h	dw 0
@@ -121,14 +119,50 @@ oldsegm09h	dw 0
 ;-----------------------------------------------------
 ShowReg		proc
 
-        ;push sp
-        ;add sp, 10d
 		mov cx, 4d
 		mov di, 0
 
-		mov bx, word ptr [bp + 4]
-CONT_SH_REG:
-		cmp bx, 0h
+        push sp
+        pop bp
+
+		push [str_num]
+		add [nxt_reg_ptr], 2
+
+		mov cx, [nxt_reg_ptr]		;first pushed in stack register (ax)
+		add bp, cx
+		xor cx, cx
+
+		mov cx, regs_num
+		add bp, 2d
+
+CONT_SHOW:
+		sub bp, 2d
+		mov bx, word ptr [bp]
+
+		call CalcReg
+		call OutReg
+		
+		mov ax, [str_num]
+		add ax, 160d
+		mov str_num, ax
+
+		loop CONT_SHOW
+
+		pop [str_num]
+
+		ret
+		endp
+;=====================================================
+
+;=====================================================
+;Calculate register
+;-----------------------------------------------------
+CalcReg		proc
+
+		push cx
+		mov cx, 4h
+
+CONT_SH_REG:	cmp bx, 0h
 		je END_SH_REG
 
         push bx
@@ -146,10 +180,8 @@ DIGIT:      add bx, 30h
 SAVE&OUT:   mov byte ptr [hex_num + di], bl
 	    pop bx
         shr bx, 4
-	    push bx
 
 		inc di
-        inc di
 
 		loop CONT_SH_REG
 
@@ -157,25 +189,49 @@ END_SH_REG: mov bx, 0b800h
 	    mov es, bx
         mov di, 8d
 
-
-CONT_OUT:   mov bl, [hex_num + di]
-        neg di
-	    mov es:[slip + di], bl
-		neg di
-		dec di
-		dec di
-		cmp di, -2h
-		jne CONT_OUT
-
-		;sub sp, 2
-
-		;pop sp
+		pop cx
 
 		ret
 		endp
 ;=====================================================
-slip    	equ 6h
-hex_num 	db 4 dup(0)
+
+;=====================================================
+;Out register
+;-----------------------------------------------------
+OutReg		proc
+
+		push cx
+		mov cx, 4h
+        mov di, 4h
+
+CONT_OUT:
+		push di
+
+        neg di
+		mov al, [hex_num + di + slip]
+        neg di
+
+		;mov si, hex_num
+		;add di, si
+
+		shl di, 1
+		add di, [str_num]
+		add di, [col_num]
+	    mov es:[di], al
+		sub di, [str_num]
+		sub di, [col_num]
+		shr di, 1
+
+		pop di 
+		dec di
+		
+		loop CONT_OUT
+
+		pop cx
+
+		ret
+		endp
+;=====================================================
 
 ;=====================================================
 ;DrawFrame
@@ -285,6 +341,7 @@ main:	cli			;turn off hardware interrupts
 		mov dx, offset EOP
 
 		int 21h
+;=====================================================
 
 end 		start
 
