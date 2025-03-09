@@ -105,8 +105,8 @@ ShowReg		proc
 		mov cx, 4d
 		mov di, 0
 
-        push sp
-        pop bp
+	        push sp
+        	pop bp
 
 		call OutRegName
 
@@ -149,29 +149,29 @@ CalcReg		proc
 CONT_SH_REG:	cmp bx, 0h
 		je END_SH_REG
 
-        push bx
+	        push bx
 		and bx, 0fh
-	    cmp bx, 9h
-        ja LITERA
-	    jmp DIGIT
+	        cmp bx, 9h
+	       	ja LITERA
+	        jmp DIGIT
 
-LITERA:     add bx, 41h
-        sub bx, 0ah
-	    jmp SAVE&OUT
-DIGIT:      add bx, 30h
-        jmp SAVE&OUT
+LITERA:         add bx, 41h
+	        sub bx, 0ah
+	    	jmp SAVE&OUT
+DIGIT:          add bx, 30h
+        	jmp SAVE&OUT
 
-SAVE&OUT:   mov byte ptr [hex_num + di], bl
-	    pop bx
-        shr bx, 4
+SAVE&OUT:       mov byte ptr [hex_num + di], bl
+	        pop bx
+        	shr bx, 4
 
 		inc di
 
 		loop CONT_SH_REG
 
-END_SH_REG: mov bx, 0b800h
-	    mov es, bx
-        mov di, 8d
+END_SH_REG:     mov bx, 0b800h
+	        mov es, bx
+        	mov di, 8d
 
 		pop cx
 
@@ -181,7 +181,7 @@ END_SH_REG: mov bx, 0b800h
 
 ;=====================================================
 ;out register's name
-OutRegName		proc
+OutRegName	proc
 		
 		mov si, offset reg_store
 		mov cx, regs_num
@@ -194,7 +194,7 @@ OutRegName		proc
 		add bx, [str_num]
 
 NAME_OUT:
-	push bx
+		push bx
 	STR_OUT:	
 		mov al, [si]
 		mov es:[bx], al
@@ -215,18 +215,18 @@ NAME_OUT:
 ;=====================================================
 ;Out register value
 ;-----------------------------------------------------
-OutRegVal		proc
+OutRegVal	proc
 
 		push cx
 		mov cx, 4h
-        mov di, 4h
+        	mov di, 4h
 
 CONT_OUT:
 		push di
 
-        neg di
+        	neg di
 		mov al, [hex_num + di + slip]
-        neg di
+        	neg di
 
 		;mov si, hex_num
 		;add di, si
@@ -234,7 +234,7 @@ CONT_OUT:
 		shl di, 1
 		add di, [str_num]
 		add di, [col_num]
-	    mov es:[di], al
+	        mov es:[di], al
 		sub di, [str_num]
 		sub di, [col_num]
 		shr di, 1
@@ -371,16 +371,16 @@ Style2:		db  03d,  03d,  03d,  03d, 00d,  03d,  03d,  03d,  03d, '$'
 ;-----------------------------------------------------|
 ;   	*constants or variables are stored here*      |
 ;- - - - - - - - - - - - - - - - - - - - - - - - - - -|
-VIDEOSEG 	equ 0b800h								  ;
-slip    	equ 4h									  ;
-regs_num	equ 10d									  ;
-nxt_reg_ptr dw 14h									  ;
-str_num		dw 160 * 11                               ;
-col_num		dw 58d									  ;
-hex_num 	db 4 dup(0)								  ;-----------------------|
-reg_store	db 	'ax = $bx = $cx = $dx = $es = $ds = $di = $si = $bp = $sp = $';							  ;
-													  ;-----------------------|
-operation   db  ?									  ;
+VIDEOSEG 	equ 0b800h			      ;
+slip    	equ 4h				      ;
+regs_num	equ 10d				      ;
+nxt_reg_ptr     dw 14h				      ;
+str_num		dw 160 * 11                           ;
+col_num		dw 58d				      ;
+hex_num 	db 4 dup(0)			      ;--------------------------|
+reg_store	db 'ax = $bx = $cx = $dx = $es = $ds = $di = $si = $bp = $sp = $';							  ;
+						      ;--------------------------|
+operation   db  ?		                      ;
 ;-----------------------------------------------------|
 
 EOP:
