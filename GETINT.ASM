@@ -3,39 +3,25 @@
 org 100h
 
 ;=====================================================
-start:	jmp main
-
-;-----------------------------------------------------|
-;   	*constants or variables are stored here*      |
-;- - - - - - - - - - - - - - - - - - - - - - - - - - -|
-VIDEOSEG 	equ 0b800h								  ;
-slip    	equ 4h									  ;
-regs_num	equ 9d									  ;
-nxt_reg_ptr dw 12h									  ;
-str_num		dw 160 * 11                               ;
-col_num		dw 58d									  ;
-hex_num 	db 4 dup(0)								  ;
-;-----------------------------------------------------|
+start:	jmp main ;--------->------->-------->-------->------->-TO_MAIN->---....
 
 ;=====================================================
-new09 	proc
-		push ax bx cx es ds di si bp sp
+new08 	proc
+		push ax bx cx dx es ds di si bp sp
 
 		push cs
 		pop ds
-
-		in al, 60h			;gets scan-code of pressed button
-
-		cmp al, 02h			;button '1'\'!' on keyboard
+		
+		cmp [operation], 02h		;button '1'\'!' on keyboard
 		je FRAME1
 
-		cmp al, 03h			;button '2'\'@' on keyboard
+		cmp [operation], 03h		;button '2'\'@' on keyboard
 		je FRAME2
 
-		cmp al, 04h			;button '3'\'#' on keyboard
+		cmp [operation], 04h		;button '3'\'#' on keyboard
 		je SHOW_REGS
 
-		cmp al, 05h			;button '4'\'$' on keyboard
+		cmp [operation], 05h		;button '4'\'$' on keyboard
 		je A_OUT
 
 		jmp WRONG_BUTTON
@@ -55,25 +41,30 @@ VID_PREP:
 		mov es, bx
 		mov bx, 0
 
-		mov cx, 8
-		mov bp, 9
-		mov di, 160 * 10 + 50
+		mov cx, 9
+		mov bp, 10
+		mov di, 160 * 10 + 48
 
 		call DrawFrame
-		jmp END_OF_INT_09H
+		jmp END_OF_INT_08H
 ;-----------------------------------------------------
 
 ;-----------------------------------------------------
 ;mov registers to VIDEOSEG
 
 SHOW_REGS:
-		push ax bx cx es ds di si bp sp
+		mov ax, 0faceh
+		mov bx, 0dedah
+		mov cx, 0fedah
+		mov dx, 0edaah
+
+		push ax bx cx dx es ds di si bp sp
 
 		call ShowReg
 
-		pop sp bp si di ds es cx bx ax
+		pop sp bp si di ds es dx cx bx ax
 
-		jmp END_OF_INT_09H
+		jmp END_OF_INT_08H
 ;-----------------------------------------------------
 
 ;-----------------------------------------------------
@@ -88,25 +79,17 @@ A_OUT:	mov bx, VIDEOSEG
 ;-----------------------------------------------------
 
 WRONG_BUTTON:
-		in al, 61h
-		or al, 80h
 
-		out 61h, al
-		and al, 7fh
-		out 61h, al
-		mov al, 20h
-		out 20h, al
-
-END_OF_INT_09H:
-		pop sp bp si di ds es cx bx ax
+END_OF_INT_08H:
+		pop sp bp si di ds es dx cx bx ax
 
 ;-----------------------
 ; 0eah is a machine code
 ; of far jump
 ;- - - - - - - - - - - - 
 		db 0eah
-oldoffs09h 	dw 0
-oldsegm09h	dw 0
+oldoffs08h 	dw 0
+oldsegm08h	dw 0
 ;-----------------------
 
 		iret
@@ -125,8 +108,9 @@ ShowReg		proc
         push sp
         pop bp
 
+		call OutRegName
+
 		push [str_num]
-		add [nxt_reg_ptr], 2
 
 		mov cx, [nxt_reg_ptr]		;first pushed in stack register (ax)
 		add bp, cx
@@ -140,7 +124,7 @@ CONT_SHOW:
 		mov bx, word ptr [bp]
 
 		call CalcReg
-		call OutReg
+		call OutRegVal
 		
 		mov ax, [str_num]
 		add ax, 160d
@@ -196,9 +180,42 @@ END_SH_REG: mov bx, 0b800h
 ;=====================================================
 
 ;=====================================================
-;Out register
+;out register's name
+OutRegName		proc
+		
+		mov si, offset reg_store
+		mov cx, regs_num
+
+		mov bx, VIDEOSEG
+		mov es, bx
+		xor bx, bx
+		add bx, [col_num]
+		sub bx, 8d
+		add bx, [str_num]
+
+NAME_OUT:
+	push bx
+	STR_OUT:	
+		mov al, [si]
+		mov es:[bx], al
+		add bx, 2d
+
+		inc si
+		cmp byte ptr [si], '$'
+		jne STR_OUT
+
+		inc si
+		pop bx
+		add bx, 160d		;move to next string
+
+		loop NAME_OUT		
+
+		ret 
+		endp
+;=====================================================
+;Out register value
 ;-----------------------------------------------------
-OutReg		proc
+OutRegVal		proc
 
 		push cx
 		mov cx, 4h
@@ -312,14 +329,67 @@ next:		mov es:[di], al
 		endp
 ;=====================================================
 
+;=====================================================
+new09	proc
+		push ax bx cx dx es ds di si bp sp
+
+		push cs
+		pop ds
+
+		in al, 60h			;gets scan-code of pressed button
+
+		mov operation, al
+
+END_OF_INT_09H:
+		in al, 61h
+		or al, 80h
+
+		out 61h, al
+		and al, 7fh
+		out 61h, al
+		mov al, 20h
+		out 20h, al
+
+		pop sp bp si di ds es dx cx bx ax
+
+;-----------------------
+; 0eah is a machine code
+; of far jump
+;- - - - - - - - - - - - 
+		db 0eah
+oldoffs09h 	dw 0
+oldsegm09h	dw 0
+;-----------------------
+
+		iret
+		endp
+;=====================================================
+
 Style1: 	db 201d, 205d, 187d, 186d, 00d, 186d, 200d, 205d, 188d, '$'
 Style2:		db  03d,  03d,  03d,  03d, 00d,  03d,  03d,  03d,  03d, '$'
 
+;-----------------------------------------------------|
+;   	*constants or variables are stored here*      |
+;- - - - - - - - - - - - - - - - - - - - - - - - - - -|
+VIDEOSEG 	equ 0b800h								  ;
+slip    	equ 4h									  ;
+regs_num	equ 10d									  ;
+nxt_reg_ptr dw 14h									  ;
+str_num		dw 160 * 11                               ;
+col_num		dw 58d									  ;
+hex_num 	db 4 dup(0)								  ;-----------------------|
+reg_store	db 	'ax = $bx = $cx = $dx = $es = $ds = $di = $si = $bp = $sp = $';							  ;
+													  ;-----------------------|
+operation   db  ?									  ;
+;-----------------------------------------------------|
+
 EOP:
 
-main:	cli			;turn off hardware interrupts
+main:	;<-------<------<--------<--------<---------<-------<--TO_MAIN-<---....
+
 		mov ah, 35h
-		mov al, 9 	;we want the vector(memory location) of int 09h	(ex:[bx])
+		mov al, 9 		;we want the vector(memory location)
+						; of int 09h	(ex:[bx])
 		int 21h
 
 		mov oldoffs09h, bx
@@ -334,6 +404,24 @@ main:	cli			;turn off hardware interrupts
 		pop ax
 		mov es:[bx+2], ax
 
+		sti
+
+		cli 
+		mov ah, 35h
+		mov al, 8
+		int 21h
+
+		mov oldoffs08h, bx
+		mov oldsegm08h, es
+
+		xor ax, ax
+		mov es, ax
+		mov bx, 08h * 4
+
+		mov word ptr es:[bx], offset new08
+		push cs
+		pop ax
+		mov es:[bx+2], ax
 		sti
 
 		mov ax, 3100h
