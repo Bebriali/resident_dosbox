@@ -12,16 +12,16 @@ new08 	proc
 		push cs
 		pop ds
 
-		cmp [button_1], 01h		;button '1'\'!' on keyboard
+		cmp [button_1], 02h		;button '1'\'!' on keyboard
 		je FRAME1
 
-		cmp [button_2], 01h		;button '2'\'@' on keyboard
+		cmp [button_2], 03h		;button '2'\'@' on keyboard
 		je FRAME2
 
-		cmp [button_3], 01h		;button '3'\'#' on keyboard
+		cmp [button_3], 04h		;button '3'\'#' on keyboard
 		je SHOW_REGS
 
-		cmp [button_4], 01h		;button '4'\'$' on keyboard
+		cmp [button_4], 05h		;button '4'\'$' on keyboard
 		je A_OUT
 
 		jmp WRONG_BUTTON
@@ -339,28 +339,30 @@ new09	proc
 		in al, 60h			;gets scan-code of pressed button
 
 		cmp al, 02h			;button '1'/'!' on keyboard
-		je BUTTON_1
+		je BUT_1
 
 		cmp al, 03h
-		je BUTTON_2
+		je BUT_2
 
 		cmp al, 04h
-		je BUTTON_3
+		je BUT_3
 
 		cmp al, 05h
-		je BUTTON_4
+		je BUT_4
 
-BUTTON_1:
-	mov button_1, 01h
+BUT_1:
+	mov button_1, al
+	mov button_2, 00h
 	jmp END_OF_INT_09H
-BUTTON_2:
-	mov button_2, 01h
+BUT_2:
+	mov button_2, al
+	mov button_1, 00h
 	jmp END_OF_INT_09H
-BUTTON_3:
-	mov button_3, 01h
+BUT_3:
+	mov button_3, al
 	jmp END_OF_INT_09H
-BUTTON_4:
-	mov button_4, 01h
+BUT_4:
+	mov button_4, al
 	jmp END_OF_INT_09H
 
 END_OF_INT_09H:
