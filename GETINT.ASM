@@ -11,17 +11,17 @@ new08 	proc
 
 		push cs
 		pop ds
-		
-		cmp [operation], 02h		;button '1'\'!' on keyboard
+
+		cmp [button_1], 01h		;button '1'\'!' on keyboard
 		je FRAME1
 
-		cmp [operation], 03h		;button '2'\'@' on keyboard
+		cmp [button_2], 01h		;button '2'\'@' on keyboard
 		je FRAME2
 
-		cmp [operation], 04h		;button '3'\'#' on keyboard
+		cmp [button_3], 01h		;button '3'\'#' on keyboard
 		je SHOW_REGS
 
-		cmp [operation], 05h		;button '4'\'$' on keyboard
+		cmp [button_4], 01h		;button '4'\'$' on keyboard
 		je A_OUT
 
 		jmp WRONG_BUTTON
@@ -86,7 +86,7 @@ END_OF_INT_08H:
 ;-----------------------
 ; 0eah is a machine code
 ; of far jump
-;- - - - - - - - - - - - 
+;- - - - - - - - - - - -
 		db 0eah
 oldoffs08h 	dw 0
 oldsegm08h	dw 0
@@ -125,7 +125,7 @@ CONT_SHOW:
 
 		call CalcReg
 		call OutRegVal
-		
+
 		mov ax, [str_num]
 		add ax, 160d
 		mov str_num, ax
@@ -182,7 +182,7 @@ END_SH_REG:     mov bx, 0b800h
 ;=====================================================
 ;out register's name
 OutRegName	proc
-		
+
 		mov si, offset reg_store
 		mov cx, regs_num
 
@@ -195,7 +195,7 @@ OutRegName	proc
 
 NAME_OUT:
 		push bx
-	STR_OUT:	
+	STR_OUT:
 		mov al, [si]
 		mov es:[bx], al
 		add bx, 2d
@@ -208,9 +208,9 @@ NAME_OUT:
 		pop bx
 		add bx, 160d		;move to next string
 
-		loop NAME_OUT		
+		loop NAME_OUT
 
-		ret 
+		ret
 		endp
 ;=====================================================
 ;Out register value
@@ -239,9 +239,9 @@ CONT_OUT:
 		sub di, [col_num]
 		shr di, 1
 
-		pop di 
+		pop di
 		dec di
-		
+
 		loop CONT_OUT
 
 		pop cx
@@ -338,7 +338,30 @@ new09	proc
 
 		in al, 60h			;gets scan-code of pressed button
 
-		mov operation, al
+		cmp al, 02h			;button '1'/'!' on keyboard
+		je BUTTON_1
+
+		cmp al, 03h
+		je BUTTON_2
+
+		cmp al, 04h
+		je BUTTON_3
+
+		cmp al, 05h
+		je BUTTON_4
+
+BUTTON_1:
+	mov button_1, 01h
+	jmp END_OF_INT_09H
+BUTTON_2:
+	mov button_2, 01h
+	jmp END_OF_INT_09H
+BUTTON_3:
+	mov button_3, 01h
+	jmp END_OF_INT_09H
+BUTTON_4:
+	mov button_4, 01h
+	jmp END_OF_INT_09H
 
 END_OF_INT_09H:
 		in al, 61h
@@ -355,7 +378,7 @@ END_OF_INT_09H:
 ;-----------------------
 ; 0eah is a machine code
 ; of far jump
-;- - - - - - - - - - - - 
+;- - - - - - - - - - - -
 		db 0eah
 oldoffs09h 	dw 0
 oldsegm09h	dw 0
@@ -371,16 +394,19 @@ Style2:		db  03d,  03d,  03d,  03d, 00d,  03d,  03d,  03d,  03d, '$'
 ;-----------------------------------------------------|
 ;   	*constants or variables are stored here*      |
 ;- - - - - - - - - - - - - - - - - - - - - - - - - - -|
-VIDEOSEG 	equ 0b800h			      ;
-slip    	equ 4h				      ;
-regs_num	equ 10d				      ;
-nxt_reg_ptr     dw 14h				      ;
-str_num		dw 160 * 11                           ;
-col_num		dw 58d				      ;
-hex_num 	db 4 dup(0)			      ;--------------------------|
-reg_store	db 'ax = $bx = $cx = $dx = $es = $ds = $di = $si = $bp = $sp = $';							  ;
-						      ;--------------------------|
-operation   db  ?		                      ;
+VIDEOSEG 	equ 0b800h								  ;
+slip    	equ  4h								  	  ;
+regs_num	equ 10d					      		  	  ;
+nxt_reg_ptr  dw 14h									  ;
+str_num		 dw 160 * 11                              ;
+col_num		 dw 58d				      				  ;
+hex_num 	 db 4 dup(0)			      			  ;--------------------------|
+reg_store	 db 'ax = $bx = $cx = $dx = $es = $ds = $di = $si = $bp = $sp = $'	 ;
+						     				 		  ;--------------------------|
+button_1    db  00h									  ;
+button_2    db  00h									  ;
+button_3    db  00h									  ;
+button_4    db  00h		                      		  ;
 ;-----------------------------------------------------|
 
 EOP:
@@ -406,7 +432,7 @@ main:	;<-------<------<--------<--------<---------<-------<--TO_MAIN-<---....
 
 		sti
 
-		cli 
+		cli
 		mov ah, 35h
 		mov al, 8
 		int 21h

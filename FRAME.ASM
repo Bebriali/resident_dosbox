@@ -2,26 +2,28 @@
 .code
 org 100h
 
-start: 		mov si, 81h
+start: 		mov si, [cmd_seg]
 
+		push cx
 		call GetValue		;getting width
-		mov cx, ax
+		mov [frame_w], ax
+		pop cx
 
 		push cx
 		call GetValue		;gettting height
-		mov bp, ax
+		mov [frame_h], ax
 		pop cx
 
 		call ChFrTr		;Choose Frame Translation
 
 		mov ax, 80d		;80d = video width
-		mov bx, cx
+		mov bx, [frame_w]
 		call CalcSlip
 		shl ax, 1
 		add di, ax
 
 		mov ax, 25d		;25d = video height
-		mov bx, bp
+		mov bx, [frame_h]
 		;call CalcSlip
 		sub ax, bx
 		shr ax, 1
@@ -34,21 +36,31 @@ start: 		mov si, 81h
 		shl ax, 1
 		add di, ax
 
-		mov bx, 0b800h		;0b800h = videosegment
+		mov bx, VIDEOSEG
 		mov es, bx
 
 		call ShowFrame
 
-		pop si			;!!!!!!!!!!!!!!!!!!!
+		cmp [type_stream], 'c'
+		jne MOV_TO_CMD
+		jmp STAY_IN_CMD
+
+MOV_TO_CMD:
+		mov si, [cmd_seg]
+		jmp MESSAGE_OUT
+STAY_IN_CMD:
+		inc si
+		jmp MESSAGE_OUT
+
+MESSAGE_OUT:
 		call ChMgTr		;Choose Message Translation
 
 		call CenterString
 		;sub si, cx
 
-		mov bx, 0b800h
+		mov bx, VIDEOSEG
 		mov es, bx
 		call ShowMessage
-
 
 		mov ax, 4c00h
 		int 21h
@@ -64,15 +76,17 @@ ChMgTr		proc
 		call GetValue
 		pop cx
 
-		cmp ax, 00
+		cmp ax, 00h
 		je FROM_CMD
 		jmp FROM_DATA
 
 FROM_CMD:	add si, 1
-		ret
+		jmp EO_CH_MG_TR
 FROM_DATA:	mov si, offset Message
-		ret
+		jmp EO_CH_MG_TR
 
+EO_CH_MG_TR:
+		ret
 		endp
 ;=====================================================
 
@@ -91,18 +105,17 @@ ShowFrame	proc
 		add bx, 0ah
 		mov es, bx
 
-nextstr:	push cx
-		push si
+		;push cx
+		mov cx, [frame_h]
+
+nextstr:	push si
 		call ShowString
 		pop si
-		pop cx
 
 		add bx, 0ah
 		mov es, bx
 
-		dec bp
-		test bp, bp
-		jne nextstr
+		loop nextstr
 
 		add si, 3
 
@@ -113,6 +126,53 @@ nextstr:	push cx
 
 		ret
 		endp
+;=====================================================
+
+;=====================================================
+;ShowString
+;Entry: AX = symbol
+;		CH = times
+;       CI = min
+;Exit:  None
+;Destr: CL
+;-----------------------------------------------------
+ShowString 	proc
+		push di
+		mov ah, 00001111b
+
+		mov al, [si]
+		mov es:[di], al
+		mov es:[di+1], ah
+
+		add di, 2
+
+		inc si
+		mov al, [si]
+
+		push cx
+		mov cx, [frame_w]
+
+next:		mov es:[di], al
+		mov es:[di+1], ah
+		add di, 2
+		loop next
+
+		pop cx
+
+		inc si
+		mov al, [si]
+
+		mov es:[di], al
+		mov es:[di+1], ah
+		add di, 2
+
+		inc si
+
+		pop di
+
+		ret
+		endp
+;=====================================================
 
 ;=====================================================
 ;Calculate Slip
@@ -136,60 +196,82 @@ CalcSlip	proc
 ;-----------------------------------------------------
 ChFrTr	proc
 
+
 		push cx
 		call GetValue
 		pop cx
+
+		mov cmd_seg, si
+
 		cmp ax, 00h
 		je CMD_STYLE
+
 		cmp ax, 01h
 		je STYLE_1
+
 		cmp ax, 02h
 		je STYLE_2
+
 		cmp ax, 03h
 		je STYLE_3
 
 
 CMD_STYLE:	inc si
-		ret
-STYLE_1:	push si
-		mov si, offset Style1
-		ret
-STYLE_2:	push si
-		mov si, offset Style2
-		ret
-STYLE_3:	push si
-		mov si, offset Style3
-		ret
+		mov type_stream, 'c'
+		jmp EO_CH_FR_TR
 
+STYLE_1:	mov cmd_seg, si
+		mov type_stream, 's'
+		mov si, offset Style1
+		jmp EO_CH_FR_TR
+
+STYLE_2:	mov cmd_seg, si
+		mov type_stream, 's'
+		mov si, offset Style2
+		jmp EO_CH_FR_TR
+
+STYLE_3:	mov cmd_seg, si
+		mov type_stream, 's'
+		mov si, offset Style3
+		jmp EO_CH_FR_TR
+
+EO_CH_FR_TR:
+		ret
 		endp
 ;=====================================================
 
 ;=====================================================
 ;GetValue
 ;Entry:	SI = addr
-;Exit: 	AX
+;Exit: 	AX = value
 ;Destr: CX
 ;-----------------------------------------------------
 GetValue	proc
 
 		xor ax, ax
+		xor cx, cx
 
-		mov cx, [si]
-		cmp cl, ' '
-		jne Get
+Skip:	mov cl, [si]
+		inc si
 
-Skip:		inc si
-		mov cx, [si]
 		cmp cl, ' '
 		je Skip
 
-Get:		add ch, -30h		;'0' equals to 30h in ASCII
-		add cl, -30h		;
-		mov al, cl
-		shl al, 4
-		add al, ch
+Get:
+		cmp cl, '9'
+		jna DIG_CASE
+LIT_CASE:
+		sub cl, 21h
+DIG_CASE:
+		sub cl, 30h
+		shl ax, 4
+		add ax, cx
 
-		add si, 2
+		mov cl, [si]
+
+		inc si
+		cmp cl, ' '
+		jne Get
 
 		endp
 		ret
@@ -216,46 +298,6 @@ ShowChar 	proc
 		endp
 ;=====================================================
 
-;=====================================================
-;ShowString
-;Entry: AX = symbol
-;	CH = times
-;       CI = min
-;Exit:  None
-;Destr: CL
-;-----------------------------------------------------
-ShowString 	proc
-		push di
-		mov ah, 00001111b
-
-		mov al, [si]
-		mov es:[di], al
-		mov es:[di+1], ah
-
-		add di, 2
-
-		inc si
-		mov al, [si]
-
-next:		mov es:[di], al
-		mov es:[di+1], ah
-		add di, 2
-		loop next
-
-		inc si
-		mov al, [si]
-
-		mov es:[di], al
-		mov es:[di+1], ah
-		add di, 2
-
-		inc si
-
-		pop di
-
-		ret
-		endp
-;=====================================================
 
 ;=====================================================
 ;CenterString
@@ -329,9 +371,15 @@ StrLen		proc
 		endp
 ;=====================================================
 
-Message:	db 'happy birthday!$'
-Style1: 	db 201d, 205d, 187d, 186d, 00d, 186d, 200d, 205d, 188d, '$'
-Style2: 	db 'zovl lzvz$'
-Style3:		db 03, 03, 03, 03, 00, 03, 03, 03, 03
+Message	db 'happy birthday!$'
+Style1 	db 201d, 205d, 187d, 186d, 00d, 186d, 200d, 205d, 188d, '$'
+Style2 	db 'zovl lzvz$'
+Style3		db 03, 03, 03, 03, 00, 03, 03, 03, 03, '$'
+
+VIDEOSEG 	equ 0b800h
+cmd_seg		dw  81h
+type_stream db  ?
+frame_w		dw  ?
+frame_h		dw  ?
 
 end 		start
